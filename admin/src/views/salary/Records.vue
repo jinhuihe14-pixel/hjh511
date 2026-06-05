@@ -95,6 +95,14 @@
           </el-table-column>
           <el-table-column prop="description" label="说明" />
           <el-table-column prop="amount" label="金额" width="100" />
+          <el-table-column prop="appealStatus" label="申诉状态" width="100">
+            <template #default="{ row }">
+              <el-tag v-if="row.appealStatus" size="small" :type="getAppealStatusType(row.appealStatus)">
+                {{ getAppealStatusName(row.appealStatus) }}
+              </el-tag>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
         </el-table>
 
         <h4 style="margin: 20px 0 10px;" v-if="currentRecord.manualAdjustments?.length">手动调整记录</h4>
@@ -189,6 +197,24 @@ const getDetailType = (type) => {
   return typeMap[type] || type
 }
 
+const getAppealStatusName = (status) => {
+  const statusMap = {
+    pending: '待复核',
+    approved: '已通过',
+    rejected: '已驳回'
+  }
+  return statusMap[status] || status
+}
+
+const getAppealStatusType = (status) => {
+  const typeMap = {
+    pending: 'warning',
+    approved: 'success',
+    rejected: 'danger'
+  }
+  return typeMap[status] || 'info'
+}
+
 const formatDate = (date) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm')
 }
@@ -229,14 +255,20 @@ const confirmAdjustment = async () => {
 }
 
 const lockSalary = async (row) => {
-  await ElMessageBox.confirm('锁定后薪资将无法修改，确定锁定？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  })
-  await lockSalaryApi(row._id)
-  ElMessage.success('薪资已锁定')
-  loadRecords()
+  try {
+    await ElMessageBox.confirm('锁定后薪资将无法修改，确定锁定？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await lockSalaryApi(row._id)
+    ElMessage.success('薪资已锁定')
+    loadRecords()
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error(e.message || '锁定失败')
+    }
+  }
 }
 
 onMounted(() => {

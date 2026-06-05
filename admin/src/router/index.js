@@ -56,6 +56,12 @@ const routes = [
         meta: { title: '薪资核算' }
       },
       {
+        path: 'salary/appeals',
+        name: 'SalaryAppeals',
+        component: () => import('@/views/salary/Appeals.vue'),
+        meta: { title: '申诉复核' }
+      },
+      {
         path: 'salary/my',
         name: 'MySalary',
         component: () => import('@/views/salary/MySalary.vue'),

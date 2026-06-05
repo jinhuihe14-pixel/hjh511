@@ -31,3 +31,27 @@ export const lockSalary = (id) => {
 export const getMySalary = () => {
   return request.get('/salary/my-salary')
 }
+
+export const getAppeals = (params) => {
+  return request.get('/salary/appeals', { params })
+}
+
+export const getAppealById = (id) => {
+  return request.get(`/salary/appeals/${id}`)
+}
+
+export const approveAppeal = (id) => {
+  return request.post(`/salary/appeals/${id}/approve`)
+}
+
+export const rejectAppeal = (id, data) => {
+  return request.post(`/salary/appeals/${id}/reject`, data)
+}
+
+export const createAppeal = (data) => {
+  return request.post('/salary/appeals', data)
+}
+
+export const getMyAppeals = (params) => {
+  return request.get('/salary/appeals/my', { params })
+}

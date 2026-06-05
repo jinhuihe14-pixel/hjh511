@@ -34,6 +34,7 @@
           </template>
           <el-menu-item index="/salary/config">薪资配置</el-menu-item>
           <el-menu-item index="/salary/records">薪资核算</el-menu-item>
+          <el-menu-item index="/salary/appeals">申诉复核</el-menu-item>
           <el-menu-item index="/salary/my">我的薪资</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="stats">
