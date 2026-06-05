@@ -5,7 +5,7 @@
         <h2>洗鞋门店管理系统</h2>
         <p>店长后台登录</p>
       </div>
-      <el-form ref="loginForm" :model="loginForm" :rules="rules" class="login-form">
+      <el-form ref="formRef" :model="loginForm" :rules="rules" class="login-form">
         <el-form-item prop="username">
           <el-input
             v-model="loginForm.username"
@@ -48,6 +48,7 @@ import { useUserStore } from '@/store/user'
 
 const router = useRouter()
 const userStore = useUserStore()
+const formRef = ref(null)
 const loginForm = reactive({
   username: '',
   password: ''
@@ -61,6 +62,7 @@ const rules = {
 
 const handleLogin = async () => {
   try {
+    await formRef.value?.validate()
     loading.value = true
     await userStore.login(loginForm.username, loginForm.password)
     ElMessage.success('登录成功')
