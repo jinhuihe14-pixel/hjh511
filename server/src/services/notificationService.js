@@ -10,7 +10,7 @@ const checkOverdueOrders = async () => {
       status: 'completed',
       pickedUpAt: null,
       isOverdueNotified: false,
-      updatedAt: { $lte: thirtyDaysAgo
+      updatedAt: { $lte: thirtyDaysAgo }
     }).populate('customer', 'name phone wechatId');
 
     for (const order of overdueOrders) {
