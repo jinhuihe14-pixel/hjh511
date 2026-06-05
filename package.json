@@ -1,0 +1,15 @@
+{
+  "name": "shoe-care-management-system",
+  "version": "1.0.0",
+  "description": "社区连锁洗鞋门店全栈管理系统",
+  "scripts": {
+    "setup": "npm install && cd server && npm install && cd ../admin && npm install && cd ../frontend && npm install",
+    "dev:server": "cd server && npm run dev",
+    "dev:admin": "cd admin && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:worker": "cd worker-app && npm run dev"
+  },
+  "keywords": ["shoe-care", "management", "system"],
+  "author": "",
+  "license": "MIT"
+}
