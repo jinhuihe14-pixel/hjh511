@@ -66,55 +66,89 @@ const initDefaultTemplates = async () => {
   }
 };
 
-const generateProcessesForShoe = async (shoe) => {
-  const serviceTypes = [...new Set(shoe.services.map(s => s.type))];
-  
-  const allSteps = [];
-  const addedKeys = new Set();
-
-  for (const type of serviceTypes) {
-    const template = DEFAULT_TEMPLATES.find(t => t.serviceCategory === type);
-    if (template) {
-      for (const step of template.steps) {
-        if (!addedKeys.has(step.key)) {
-          addedKeys.add(step.key);
-          allSteps.push({
-            key: step.key,
-            name: step.name,
-            sortOrder: step.sortOrder,
-            role: step.role,
-            estimatedDuration: step.estimatedDuration,
-            status: 'pending'
-          });
-        }
+const getActiveTemplates = async () => {
+  try {
+    const dbTemplates = await ProcessTemplate.find({ isActive: true });
+    const result = [];
+    const dbCategories = new Set();
+    
+    for (const dbTpl of dbTemplates) {
+      const tplObj = dbTpl.toObject ? dbTpl.toObject() : dbTpl;
+      result.push(tplObj);
+      dbCategories.add(tplObj.serviceCategory);
+    }
+    
+    for (const defaultTpl of DEFAULT_TEMPLATES) {
+      if (!dbCategories.has(defaultTpl.serviceCategory)) {
+        result.push({
+          ...defaultTpl,
+          steps: defaultTpl.steps.map(s => ({ ...s }))
+        });
       }
     }
+    
+    return result;
+  } catch (error) {
+    console.error('Failed to get active templates from DB, using defaults:', error.message);
+    return DEFAULT_TEMPLATES.map(t => ({ ...t, steps: t.steps.map(s => ({ ...s })) }));
   }
+};
 
-  const uniqueSteps = [];
+const mergeSteps = (serviceTypes, templates) => {
   const stepMap = new Map();
-  
-  for (const type of serviceTypes) {
-    const template = DEFAULT_TEMPLATES.find(t => t.serviceCategory === type);
-    if (template) {
+  const typeOrder = ['cleaning', 'repair', 'renew', 'luxury'];
+  const sortedTypes = [...serviceTypes].sort((a, b) => typeOrder.indexOf(a) - typeOrder.indexOf(b));
+
+  for (const type of sortedTypes) {
+    const template = templates.find(t => t.serviceCategory === type);
+    if (template && Array.isArray(template.steps)) {
       for (const step of template.steps) {
-        if (!stepMap.has(step.key)) {
-          stepMap.set(step.key, step);
+        const stepObj = step.toObject ? step.toObject() : { ...step };
+        if (stepObj.key && !stepMap.has(stepObj.key)) {
+          stepMap.set(stepObj.key, stepObj);
         }
       }
     }
   }
 
-  const sortedSteps = Array.from(stepMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
-  
-  return sortedSteps.map((step, index) => ({
+  const allSteps = Array.from(stepMap.values());
+  const firstStep = allSteps.find(s => s.key === 'receive');
+  const qcStep = allSteps.find(s => s.key === 'quality_check');
+  const finishStep = allSteps.find(s => s.key === 'finish');
+
+  const middleSteps = allSteps.filter(s => 
+    s.key !== 'receive' && s.key !== 'quality_check' && s.key !== 'finish'
+  );
+
+  middleSteps.sort((a, b) => {
+    const orderA = a.sortOrder ?? 999;
+    const orderB = b.sortOrder ?? 999;
+    if (orderA !== orderB) return orderA - orderB;
+    return (a.key || '').localeCompare(b.key || '');
+  });
+
+  const result = [];
+  if (firstStep) result.push(firstStep);
+  result.push(...middleSteps);
+  if (qcStep) result.push(qcStep);
+  if (finishStep) result.push(finishStep);
+
+  return result.map((step, index) => ({
     key: step.key,
     name: step.name,
     sortOrder: index + 1,
     role: step.role,
-    estimatedDuration: step.estimatedDuration,
+    estimatedDuration: step.estimatedDuration || 0,
     status: 'pending'
   }));
+};
+
+const generateProcessesForShoe = async (shoe) => {
+  const serviceTypes = [...new Set(shoe.services.map(s => s.type))];
+  
+  const templates = await getActiveTemplates();
+  
+  return mergeSteps(serviceTypes, templates);
 };
 
 const generateProcessesForShoeFromDB = async (shoe) => {

@@ -418,7 +418,7 @@ router.post('/:orderId/shoes/:shoeIndex/processes/:processKey/claim', auth, requ
       return res.status(404).json({ message: '工序不存在' });
     }
 
-    if (process.role !== userRole) {
+    if (userRole !== 'admin' && process.role !== userRole) {
       await session.abortTransaction();
       return res.status(403).json({ message: '无权领取该工序' });
     }
@@ -496,7 +496,7 @@ router.post('/:orderId/shoes/:shoeIndex/processes/:processKey/start', auth, requ
       return res.status(404).json({ message: '工序不存在' });
     }
 
-    if (process.role !== userRole) {
+    if (userRole !== 'admin' && process.role !== userRole) {
       return res.status(403).json({ message: '无权操作该工序' });
     }
 
@@ -548,7 +548,7 @@ router.post('/:orderId/shoes/:shoeIndex/processes/:processKey/complete', auth, r
       return res.status(404).json({ message: '工序不存在' });
     }
 
-    if (process.role !== userRole) {
+    if (userRole !== 'admin' && process.role !== userRole) {
       return res.status(403).json({ message: '无权操作该工序' });
     }
 
@@ -566,6 +566,11 @@ router.post('/:orderId/shoes/:shoeIndex/processes/:processKey/complete', auth, r
     
     if (process.startedAt) {
       process.duration = Math.round((process.completedAt - process.startedAt) / 60000);
+    }
+    
+    if (!process.isCountedForSalary) {
+      process.isCountedForSalary = true;
+      process.salaryCountedAt = new Date();
     }
 
     const procIndex = shoe.processes.findIndex(p => p.key === processKey);
@@ -625,6 +630,11 @@ router.post('/:orderId/shoes/:shoeIndex/processes/:processKey/quality-check', au
       qcProc.assignee = req.user._id;
       if (qcProc.startedAt) {
         qcProc.duration = Math.round((qcProc.completedAt - qcProc.startedAt) / 60000);
+      }
+      
+      if (!qcProc.isCountedForSalary) {
+        qcProc.isCountedForSalary = true;
+        qcProc.salaryCountedAt = new Date();
       }
       
       shoe.currentProcessIndex = qcIndex + 1;
