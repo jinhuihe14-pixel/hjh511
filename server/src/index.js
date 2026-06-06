@@ -11,8 +11,9 @@ const salaryRoutes = require('./routes/salary');
 const customerRoutes = require('./routes/customers');
 const statsRoutes = require('./routes/stats');
 const processTemplateRoutes = require('./routes/processTemplates');
+const serviceItemRoutes = require('./routes/serviceItems');
 const { checkOverdueOrders } = require('./services/notificationService');
-const { initDefaultTemplates } = require('./services/processService');
+const { initDefaultTemplates, initDefaultServiceItems } = require('./services/processService');
 
 const app = express();
 
@@ -26,6 +27,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 .then(async () => {
   console.log('MongoDB connected');
   await initDefaultTemplates();
+  await initDefaultServiceItems();
 })
 .catch(err => console.error('MongoDB connection error:', err));
 
@@ -36,6 +38,7 @@ app.use('/api/salary', salaryRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/process-templates', processTemplateRoutes);
+app.use('/api/service-items', serviceItemRoutes);
 
 cron.schedule('0 9 * * *', () => {
   console.log('Checking for overdue orders...');

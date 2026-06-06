@@ -1,5 +1,13 @@
 const ProcessTemplate = require('../models/ProcessTemplate');
+const ServiceItem = require('../models/ServiceItem');
 const Order = require('../models/Order');
+
+const DEFAULT_SERVICE_ITEMS = [
+  { name: '运动鞋洗护', category: 'cleaning', price: 35, commissionRate: 10, pieceRate: 5, sortOrder: 1 },
+  { name: '皮鞋翻新', category: 'renew', price: 80, commissionRate: 15, pieceRate: 0, sortOrder: 2 },
+  { name: '奢侈品护理', category: 'luxury', price: 200, commissionRate: 20, pieceRate: 0, sortOrder: 3 },
+  { name: '换底修补', category: 'repair', price: 120, commissionRate: 15, pieceRate: 0, sortOrder: 4 }
+];
 
 const DEFAULT_TEMPLATES = [
   {
@@ -53,45 +61,84 @@ const DEFAULT_TEMPLATES = [
 
 const initDefaultTemplates = async () => {
   try {
-    const existing = await ProcessTemplate.countDocuments();
-    if (existing > 0) return;
+    const collection = ProcessTemplate.collection;
+    try {
+      await collection.dropIndex('serviceType_1');
+      console.log('Dropped legacy index: serviceType_1');
+    } catch (e) {
+      // index may not exist, ignore
+    }
+
+    const existingTemplates = await ProcessTemplate.find({});
+    const existingCategories = new Set(existingTemplates.map(t => t.serviceCategory));
+    let added = 0;
 
     for (const tpl of DEFAULT_TEMPLATES) {
-      const template = new ProcessTemplate(tpl);
-      await template.save();
+      if (!existingCategories.has(tpl.serviceCategory)) {
+        const template = new ProcessTemplate(tpl);
+        await template.save();
+        added++;
+      }
     }
-    console.log('Default process templates initialized');
+
+    if (added > 0) {
+      console.log(`Initialized ${added} default process templates`);
+    }
   } catch (error) {
     console.error('Failed to init process templates:', error.message);
   }
 };
 
-const getActiveTemplates = async () => {
+const initDefaultServiceItems = async () => {
   try {
-    const dbTemplates = await ProcessTemplate.find({ isActive: true });
-    const result = [];
-    const dbCategories = new Set();
-    
-    for (const dbTpl of dbTemplates) {
-      const tplObj = dbTpl.toObject ? dbTpl.toObject() : dbTpl;
-      result.push(tplObj);
-      dbCategories.add(tplObj.serviceCategory);
+    const existing = await ServiceItem.countDocuments();
+    if (existing > 0) return;
+
+    for (const item of DEFAULT_SERVICE_ITEMS) {
+      const serviceItem = new ServiceItem(item);
+      await serviceItem.save();
     }
-    
-    for (const defaultTpl of DEFAULT_TEMPLATES) {
-      if (!dbCategories.has(defaultTpl.serviceCategory)) {
-        result.push({
-          ...defaultTpl,
-          steps: defaultTpl.steps.map(s => ({ ...s }))
-        });
-      }
-    }
-    
-    return result;
+    console.log('Default service items initialized');
   } catch (error) {
-    console.error('Failed to get active templates from DB, using defaults:', error.message);
-    return DEFAULT_TEMPLATES.map(t => ({ ...t, steps: t.steps.map(s => ({ ...s })) }));
+    console.error('Failed to init service items:', error.message);
   }
+};
+
+const getActiveTemplates = async () => {
+  const dbTemplates = await ProcessTemplate.find({ isActive: true });
+  const result = [];
+  
+  for (const dbTpl of dbTemplates) {
+    const tplObj = dbTpl.toObject ? dbTpl.toObject() : dbTpl;
+    result.push(tplObj);
+  }
+  
+  return result;
+};
+
+const validateServiceCategoriesHaveTemplates = async (serviceCategories) => {
+  const templates = await getActiveTemplates();
+  const activeCategories = new Set(templates.map(t => t.serviceCategory));
+  const missing = [];
+
+  for (const category of serviceCategories) {
+    if (!activeCategories.has(category)) {
+      missing.push(category);
+    }
+  }
+
+  if (missing.length > 0) {
+    const categoryNames = {
+      cleaning: '清洗',
+      repair: '维修',
+      renew: '翻新',
+      luxury: '奢护'
+    };
+    const missingNames = missing.map(c => categoryNames[c] || c).join('、');
+    throw new Error(`以下分类缺少启用中的工序模板：${missingNames}，请先在工序模板管理中配置`);
+  }
+
+  return true;
 };
 
 const mergeSteps = (serviceTypes, templates) => {
@@ -233,7 +280,11 @@ const getCurrentProcessIndex = (shoe) => {
 
 module.exports = {
   DEFAULT_TEMPLATES,
+  DEFAULT_SERVICE_ITEMS,
   initDefaultTemplates,
+  initDefaultServiceItems,
+  getActiveTemplates,
+  validateServiceCategoriesHaveTemplates,
   generateProcessesForShoe,
   generateProcessesForShoeFromDB,
   updateOrderStatusFromProcesses,

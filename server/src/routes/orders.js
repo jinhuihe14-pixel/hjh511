@@ -6,7 +6,7 @@ const Customer = require('../models/Customer');
 const ServiceItem = require('../models/ServiceItem');
 const ProcessTemplate = require('../models/ProcessTemplate');
 const { auth, requireRole } = require('../middleware/auth');
-const { generateProcessesForShoe, updateOrderStatusFromProcesses, recalculateShoeOverallStatus, getCurrentProcessIndex } = require('../services/processService');
+const { generateProcessesForShoe, updateOrderStatusFromProcesses, recalculateShoeOverallStatus, getCurrentProcessIndex, validateServiceCategoriesHaveTemplates } = require('../services/processService');
 const router = express.Router();
 
 const generateOrderNo = () => {
@@ -118,7 +118,7 @@ router.get('/:id', auth, async (req, res) => {
 
 router.post('/', auth, requireRole('admin', 'receptionist'), async (req, res) => {
   try {
-    const { customer, shoes, totalAmount, actualAmount, deposit, notes, estimatedDelivery } = req.body;
+    const { customer, shoes, actualAmount, deposit, notes, estimatedDelivery } = req.body;
 
     let customerDoc = await Customer.findOne({ phone: customer.phone });
     if (!customerDoc) {
@@ -131,8 +131,84 @@ router.post('/', auth, requireRole('admin', 'receptionist'), async (req, res) =>
       await customerDoc.save();
     }
 
-    const shoesWithProcesses = [];
+    const allServiceIds = [];
     for (const shoe of shoes) {
+      if (shoe.services && shoe.services.length > 0) {
+        for (const svc of shoe.services) {
+          if (svc._id) {
+            allServiceIds.push(svc._id);
+          }
+        }
+      }
+    }
+
+    const uniqueIds = [...new Set(allServiceIds)];
+    let serviceItemMap = new Map();
+    if (uniqueIds.length > 0) {
+      const serviceItems = await ServiceItem.find({ _id: { $in: uniqueIds }, isActive: true });
+      for (const item of serviceItems) {
+        serviceItemMap.set(item._id.toString(), item);
+      }
+    }
+
+    const allCategories = new Set();
+    const shoesWithSnapshots = [];
+    let totalAmount = 0;
+
+    for (const shoe of shoes) {
+      const serviceSnapshots = [];
+      if (shoe.services && shoe.services.length > 0) {
+        for (const svc of shoe.services) {
+          let serviceItem = null;
+          if (svc._id && serviceItemMap.has(svc._id.toString())) {
+            serviceItem = serviceItemMap.get(svc._id.toString());
+          }
+
+          if (!serviceItem) {
+            return res.status(400).json({ 
+              message: svc.name 
+                ? `服务项目「${svc.name}」不存在或已停用，请刷新页面重新选择` 
+                : '选择的服务项目不存在或已停用，请刷新页面重新选择'
+            });
+          }
+
+          allCategories.add(serviceItem.category);
+          totalAmount += serviceItem.price;
+
+          serviceSnapshots.push({
+            type: serviceItem.category,
+            name: serviceItem.name,
+            price: serviceItem.price,
+            commissionRate: serviceItem.commissionRate,
+            pieceRate: serviceItem.pieceRate,
+            serviceItemId: serviceItem._id
+          });
+        }
+      }
+      shoesWithSnapshots.push({
+        shoeType: shoe.shoeType,
+        shoeBrand: shoe.shoeBrand,
+        shoeColor: shoe.shoeColor,
+        defects: shoe.defects || [],
+        photos: shoe.photos || [],
+        services: serviceSnapshots
+      });
+    }
+
+    if (totalAmount === 0) {
+      return res.status(400).json({ message: '请至少选择一个服务项目' });
+    }
+
+    try {
+      await validateServiceCategoriesHaveTemplates([...allCategories]);
+    } catch (err) {
+      return res.status(400).json({ message: err.message });
+    }
+
+    const finalActualAmount = actualAmount !== undefined ? actualAmount : totalAmount;
+
+    const shoesWithProcesses = [];
+    for (const shoe of shoesWithSnapshots) {
       const processes = await generateProcessesForShoe(shoe);
       shoesWithProcesses.push({
         ...shoe,
@@ -149,7 +225,7 @@ router.post('/', auth, requireRole('admin', 'receptionist'), async (req, res) =>
       customer: customerDoc._id,
       shoes: shoesWithProcesses,
       totalAmount,
-      actualAmount,
+      actualAmount: finalActualAmount,
       deposit: deposit || 0,
       receptionist: req.user._id,
       estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : null,

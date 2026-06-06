@@ -87,29 +87,25 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showNotify, showDialog } from 'vant'
 import { createOrder, getCustomerByPhone } from '@/api/orders'
+import { getServiceItems } from '@/api/serviceItems'
 
 const router = useRouter()
 const submitting = ref(false)
 const servicePickerVisible = ref(false)
 const currentShoeIndex = ref(0)
+const serviceItems = ref([])
 
-const serviceOptions = [
-  { text: '运动鞋洗护 - ¥35', value: { type: 'cleaning', name: '运动鞋洗护', price: 35 } },
-  { text: '皮鞋翻新 - ¥80', value: { type: 'renew', name: '皮鞋翻新', price: 80 } },
-  { text: '奢侈品护理 - ¥200', value: { type: 'luxury', name: '奢侈品护理', price: 200 } },
-  { text: '换底修补 - ¥120', value: { type: 'repair', name: '换底修补', price: 120 } }
-]
-
-const serviceColumns = [
-  {
-    values: serviceOptions,
-    defaultIndex: 0
-  }
-]
+const serviceColumns = computed(() => {
+  const options = serviceItems.value.map(item => ({
+    text: `${item.name} - ¥${item.price}`,
+    value: { _id: item._id, type: item.category, name: item.name, price: item.price }
+  }))
+  return [{ values: options, defaultIndex: 0 }]
+})
 
 const form = reactive({
   customer: {
@@ -185,6 +181,19 @@ const onServiceConfirm = ({ selectedOptions }) => {
   showNotify({ type: 'success', message: '已添加服务项目' })
 }
 
+const loadServiceItems = async () => {
+  try {
+    const items = await getServiceItems({ isActive: true })
+    serviceItems.value = items
+  } catch (e) {
+    console.error('加载服务项目失败', e)
+  }
+}
+
+onMounted(() => {
+  loadServiceItems()
+})
+
 const submitOrder = async () => {
   try {
     submitting.value = true
@@ -196,13 +205,12 @@ const submitOrder = async () => {
         shoeBrand: shoe.shoeBrand,
         shoeColor: shoe.shoeColor,
         services: (shoe.selectedServices || []).map(s => ({
+          _id: s._id,
           type: s.type,
           name: s.name,
-          price: s.price,
-          commissionRate: 10
+          price: s.price
         }))
       })),
-      totalAmount: totalAmount.value,
       actualAmount: form.actualAmount,
       notes: form.notes
     }

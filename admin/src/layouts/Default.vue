@@ -35,6 +35,10 @@
           <el-icon><List /></el-icon>
           <span>工序模板</span>
         </el-menu-item>
+        <el-menu-item index="/service-items">
+          <el-icon><Goods /></el-icon>
+          <span>服务项目</span>
+        </el-menu-item>
         <el-sub-menu index="salary">
           <template #title>
             <el-icon><Money /></el-icon>

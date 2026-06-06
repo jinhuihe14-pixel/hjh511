@@ -141,10 +141,12 @@
                 placeholder="请选择洗护项目"
                 style="width: 100%"
               >
-                <el-option label="运动鞋洗护" :value="{ type: 'cleaning', name: '运动鞋洗护', price: 35 }" />
-                <el-option label="皮鞋翻新" :value="{ type: 'renew', name: '皮鞋翻新', price: 80 }" />
-                <el-option label="奢侈品护理" :value="{ type: 'luxury', name: '奢侈品护理', price: 200 }" />
-                <el-option label="换底修补" :value="{ type: 'repair', name: '换底修补', price: 120 }" />
+                <el-option
+                  v-for="item in serviceItems"
+                  :key="item._id"
+                  :label="`${item.name} - ¥${item.price}`"
+                  :value="{ _id: item._id, name: item.name, type: item.category, price: item.price }"
+                />
               </el-select>
             </el-form-item>
           </el-form>
@@ -183,11 +185,13 @@ import dayjs from 'dayjs'
 import { getOrders, assignOrder, updateOrderStatus, createOrder as apiCreateOrder } from '@/api/orders'
 import { getUsers } from '@/api/users'
 import { getCustomerByPhone } from '@/api/customers'
+import { getServiceItems } from '@/api/serviceItems'
 
 const router = useRouter()
 const orders = ref([])
 const technicians = ref([])
 const repairers = ref([])
+const serviceItems = ref([])
 const assignDialogVisible = ref(false)
 const showCreate = ref(false)
 const currentOrderId = ref('')
@@ -331,13 +335,12 @@ const createOrder = async () => {
       shoeBrand: shoe.shoeBrand,
       shoeColor: shoe.shoeColor,
       services: shoe.selectedServices.map(s => ({
+        _id: s._id,
         type: s.type,
         name: s.name,
-        price: s.price,
-        commissionRate: 10
+        price: s.price
       }))
     })),
-    totalAmount: calculateTotal(),
     actualAmount: newOrder.actualAmount,
     notes: newOrder.notes
   }
@@ -362,9 +365,14 @@ const loadEmployees = async () => {
   repairers.value = users.filter(u => u.role === 'repairer')
 }
 
+const loadServiceItems = async () => {
+  serviceItems.value = await getServiceItems({ isActive: true })
+}
+
 onMounted(() => {
   loadOrders()
   loadEmployees()
+  loadServiceItems()
 })
 </script>
 

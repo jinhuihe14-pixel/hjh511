@@ -93,7 +93,11 @@ const shoeItemSchema = new mongoose.Schema({
     name: String,
     price: Number,
     commissionRate: Number,
-    pieceRate: Number
+    pieceRate: Number,
+    serviceItemId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ServiceItem'
+    }
   }],
   defects: [String],
   photos: [String],

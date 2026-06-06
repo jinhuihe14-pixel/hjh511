@@ -56,6 +56,12 @@ const routes = [
         meta: { title: '工序模板' }
       },
       {
+        path: 'service-items',
+        name: 'ServiceItems',
+        component: () => import('@/views/service/List.vue'),
+        meta: { title: '服务项目' }
+      },
+      {
         path: 'salary/config',
         name: 'SalaryConfig',
         component: () => import('@/views/salary/Config.vue'),
