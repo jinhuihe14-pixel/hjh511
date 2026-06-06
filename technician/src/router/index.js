@@ -33,7 +33,7 @@ const routes = [
     ]
   },
   {
-    path: '/task-detail/:id',
+    path: '/task-detail',
     name: 'TaskDetail',
     component: () => import('@/views/TaskDetail.vue')
   },

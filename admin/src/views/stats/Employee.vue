@@ -57,18 +57,70 @@
     <el-card shadow="hover" header="业绩对比图" class="mt-20">
       <div ref="performanceChart" class="chart-container"></div>
     </el-card>
+
+    <el-card shadow="hover" header="工序统计明细" class="mt-20">
+      <div class="filter-bar">
+        <el-select v-model="selectedRole" placeholder="选择角色" style="width: 150px;" clearable>
+          <el-option label="前台" value="receptionist" />
+          <el-option label="技工" value="technician" />
+          <el-option label="翻新师" value="repairer" />
+          <el-option label="质检" value="inspector" />
+        </el-select>
+      </div>
+      <el-table :data="filteredProcessStats" border stripe>
+        <el-table-column prop="name" label="姓名" width="120" />
+        <el-table-column prop="role" label="角色" width="100">
+          <template #default="{ row }">
+            <el-tag size="small" :type="getRoleTagType(row.role)">
+              {{ getRoleText(row.role) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="completedCount" label="完成工序数" width="120" align="center" />
+        <el-table-column prop="inProgressCount" label="在制工序数" width="120" align="center" />
+        <el-table-column prop="avgDuration" label="平均耗时(分)" width="120" align="center" />
+        <el-table-column prop="reworkCount" label="返工次数" width="100" align="center" />
+        <el-table-column label="返工率" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag 
+              size="small" 
+              :type="row.reworkRate > 0.1 ? 'danger' : row.reworkRate > 0.05 ? 'warning' : 'success'"
+            >
+              {{ (row.reworkRate * 100).toFixed(1) }}%
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="工序明细">
+          <template #default="{ row }">
+            <div class="process-breakdown">
+              <el-tag 
+                v-for="item in row.processBreakdown" 
+                :key="item.name" 
+                size="small" 
+                style="margin-right: 5px; margin-bottom: 5px;"
+              >
+                {{ item.name }}: {{ item.count }}次
+              </el-tag>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import * as echarts from 'echarts'
 import dayjs from 'dayjs'
 import { getEmployeePerformance } from '@/api/stats'
+import { getEmployeeProcessStats } from '@/api/orders'
 
 const selectedMonth = ref(dayjs().format('YYYY-MM'))
 const performance = ref({})
 const performanceChart = ref(null)
+const processStats = ref([])
+const selectedRole = ref('')
 
 const recentMonths = (() => {
   const months = []
@@ -77,6 +129,33 @@ const recentMonths = (() => {
   }
   return months
 })()
+
+const filteredProcessStats = computed(() => {
+  if (!selectedRole.value) return processStats.value
+  return processStats.value.filter(s => s.role === selectedRole.value)
+})
+
+const getRoleText = (role) => {
+  const map = {
+    admin: '管理员',
+    receptionist: '前台',
+    technician: '技工',
+    repairer: '翻新师',
+    inspector: '质检员'
+  }
+  return map[role] || role
+}
+
+const getRoleTagType = (role) => {
+  const map = {
+    admin: 'danger',
+    receptionist: 'primary',
+    technician: 'success',
+    repairer: 'warning',
+    inspector: 'info'
+  }
+  return map[role] || ''
+}
 
 const initChart = () => {
   const chart = echarts.init(performanceChart.value)
@@ -125,7 +204,17 @@ const initChart = () => {
 }
 
 const loadData = async () => {
-  performance.value = await getEmployeePerformance({ month: selectedMonth.value })
+  const startDate = dayjs(selectedMonth.value).startOf('month').format('YYYY-MM-DD')
+  const endDate = dayjs(selectedMonth.value).endOf('month').format('YYYY-MM-DD')
+  
+  const [perfData, procData] = await Promise.all([
+    getEmployeePerformance({ month: selectedMonth.value }),
+    getEmployeeProcessStats({ startDate, endDate })
+  ])
+  
+  performance.value = perfData
+  processStats.value = procData
+  
   await nextTick()
   initChart()
 }
@@ -142,5 +231,18 @@ onMounted(() => {
 <style lang="scss" scoped>
 .chart-container {
   height: 400px;
+}
+
+.filter-bar {
+  margin-bottom: 15px;
+}
+
+.process-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.mt-20 {
+  margin-top: 20px;
 }
 </style>

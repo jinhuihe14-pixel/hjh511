@@ -1,10 +1,10 @@
 <template>
   <div class="tasks-page">
-    <van-nav-bar title="我的任务" />
+    <van-nav-bar title="我的工序任务" />
     
     <van-tabs v-model:active="activeTab" sticky>
-      <van-tab title="待处理" name="assigned" />
-      <van-tab title="处理中" name="processing" />
+      <van-tab title="待领取" name="pending" />
+      <van-tab title="进行中" name="in_progress" />
       <van-tab title="已完成" name="completed" />
     </van-tabs>
 
@@ -16,26 +16,48 @@
           finished-text="没有更多了"
           @load="onLoad"
         >
-          <van-card
-            v-for="order in orders"
-            :key="order._id"
-            :title="'订单号: ' + order.orderNo"
-            :desc="'取鞋码: ' + order.pickupCode"
-            :tag="getStatusText(order.status)"
-            :tag-type="getStatusType(order.status)"
-            @click="goToDetail(order._id)"
+          <div
+            v-for="task in tasks"
+            :key="`${task.orderId}-${task.shoeIndex}-${task.processKey}`"
+            class="task-item"
+            @click="goToDetail(task)"
           >
-            <template #tags>
-              <van-tag plain type="primary">{{ order.customer?.name }}</van-tag>
-              <van-tag plain type="warning">{{ order.shoes?.length || 0 }} 双鞋</van-tag>
-            </template>
-            <template #footer>
-              <span class="task-footer">
-                <span>{{ getServiceSummary(order.shoes) }}</span>
-                <span class="task-time">{{ formatDate(order.createdAt) }}</span>
+            <div class="task-header">
+              <span class="task-order-no">{{ task.orderNo }}</span>
+              <van-tag 
+                :type="getProcessStatusType(task.processStatus)"
+                size="medium"
+              >
+                {{ getProcessStatusText(task.processStatus) }}
+              </van-tag>
+            </div>
+            
+            <div class="task-body">
+              <div class="process-info">
+                <span class="process-name">{{ task.processName }}</span>
+                <span v-if="task.totalReworkCount > 0" class="rework-badge">
+                  返工{{ task.totalReworkCount }}次
+                </span>
+              </div>
+              <div class="shoe-info">
+                <span>{{ task.shoeInfo.shoeBrand || '未知品牌' }}</span>
+                <span class="divider">·</span>
+                <span>{{ task.shoeInfo.shoeType || '未知类型' }}</span>
+              </div>
+            </div>
+
+            <div class="task-footer">
+              <span class="customer-name">{{ task.customer?.name }}</span>
+              <span v-if="task.isOverdueWarning" class="overdue-warning">
+                <van-icon name="warning-o" /> 预计超时
               </span>
-            </template>
-          </van-card>
+              <span class="task-time">{{ formatDate(task.createdAt) }}</span>
+            </div>
+
+            <div v-if="!task.canStart && task.processStatus === 'pending'" class="blocked-hint">
+              <van-icon name="clock-o" /> 前置工序未完成
+            </div>
+          </div>
         </van-list>
       </van-pull-refresh>
     </div>
@@ -45,29 +67,32 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getMyTasks } from '@/api/orders'
+import { showNotify } from 'vant'
+import { getMyProcessTasks } from '@/api/orders'
 import dayjs from 'dayjs'
 
 const router = useRouter()
-const orders = ref([])
+const tasks = ref([])
 const loading = ref(false)
 const finished = ref(false)
 const refreshing = ref(false)
-const activeTab = ref('assigned')
+const activeTab = ref('pending')
 
-const getStatusText = (status) => {
+const getProcessStatusText = (status) => {
   const statusMap = {
-    assigned: '待处理',
-    processing: '处理中',
+    pending: '待领取',
+    in_progress: '进行中',
+    rework: '返工中',
     completed: '已完成'
   }
   return statusMap[status] || status
 }
 
-const getStatusType = (status) => {
+const getProcessStatusType = (status) => {
   const typeMap = {
-    assigned: 'warning',
-    processing: 'primary',
+    pending: 'warning',
+    in_progress: 'primary',
+    rework: 'danger',
     completed: 'success'
   }
   return typeMap[status] || 'default'
@@ -77,24 +102,33 @@ const formatDate = (date) => {
   return dayjs(date).format('MM-DD HH:mm')
 }
 
-const getServiceSummary = (shoes) => {
-  if (!shoes?.length) return ''
-  const services = new Set()
-  shoes.forEach(shoe => {
-    shoe.services?.forEach(s => services.add(s.name))
+const goToDetail = (task) => {
+  router.push({
+    path: '/task-detail',
+    query: {
+      orderId: task.orderId,
+      shoeIndex: task.shoeIndex,
+      processKey: task.processKey
+    }
   })
-  return Array.from(services).join('、')
-}
-
-const goToDetail = (id) => {
-  router.push(`/task-detail/${id}`)
 }
 
 const onLoad = async () => {
-  const data = await getMyTasks({ status: activeTab.value })
-  orders.value = data
-  loading.value = false
-  finished.value = true
+  try {
+    const statusMap = {
+      pending: 'pending',
+      in_progress: 'in_progress',
+      completed: 'completed'
+    }
+    const data = await getMyProcessTasks({ status: statusMap[activeTab.value] })
+    tasks.value = data
+    loading.value = false
+    finished.value = true
+  } catch (error) {
+    showNotify({ type: 'danger', message: error.message || '加载失败' })
+    loading.value = false
+    finished.value = true
+  }
 }
 
 const onRefresh = async () => {
@@ -104,22 +138,114 @@ const onRefresh = async () => {
 }
 
 watch(activeTab, () => {
-  orders.value = []
+  tasks.value = []
   finished.value = false
   onLoad()
 })
 </script>
 
 <style lang="scss" scoped>
+.tasks-page {
+  min-height: 100vh;
+  background: #f7f8fa;
+}
+
+.page-content {
+  padding: 12px;
+  padding-bottom: 60px;
+}
+
+.task-item {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.task-order-no {
+  font-weight: 600;
+  font-size: 14px;
+  color: #323233;
+}
+
+.task-body {
+  margin-bottom: 10px;
+}
+
+.process-info {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.process-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1989fa;
+  margin-right: 8px;
+}
+
+.rework-badge {
+  background: #ff976a;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.shoe-info {
+  font-size: 13px;
+  color: #646566;
+  
+  .divider {
+    margin: 0 6px;
+    color: #dcdee0;
+  }
+}
+
 .task-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
   font-size: 12px;
+  color: #969799;
+}
+
+.customer-name {
+  color: #646566;
+}
+
+.overdue-warning {
+  color: #ee0a24;
+  font-size: 11px;
   
-  .task-time {
-    color: #969799;
+  .van-icon {
+    margin-right: 2px;
+  }
+}
+
+.blocked-hint {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #fef0f0;
+  color: #ee0a24;
+  font-size: 12px;
+  border-radius: 4px;
+  
+  .van-icon {
+    margin-right: 4px;
   }
 }
 </style>

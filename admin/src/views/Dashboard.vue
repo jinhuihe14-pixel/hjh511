@@ -29,8 +29,8 @@
             <el-icon><Clock /></el-icon>
           </div>
           <div class="stat-content">
-            <p class="stat-label">待处理订单</p>
-            <p class="stat-value">{{ stats.pendingOrders || 0 }}</p>
+            <p class="stat-label">在制鞋子</p>
+            <p class="stat-value">{{ stats.inProgressShoes || 0 }}</p>
           </div>
         </div>
       </el-col>
@@ -42,6 +42,53 @@
           <div class="stat-content">
             <p class="stat-label">会员总数</p>
             <p class="stat-value">{{ stats.totalCustomers || 0 }}</p>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" class="mb-20">
+      <el-col :span="6">
+        <div class="stat-card card-cyan">
+          <div class="stat-icon">
+            <el-icon><RefreshRight /></el-icon>
+          </div>
+          <div class="stat-content">
+            <p class="stat-label">返工中</p>
+            <p class="stat-value">{{ stats.reworkCount || 0 }}</p>
+          </div>
+        </div>
+      </el-col>
+      <el-col :span="6">
+        <div class="stat-card card-red">
+          <div class="stat-icon">
+            <el-icon><Warning /></el-icon>
+          </div>
+          <div class="stat-content">
+            <p class="stat-label">预计超时</p>
+            <p class="stat-value">{{ stats.overdueWarningCount || 0 }}</p>
+          </div>
+        </div>
+      </el-col>
+      <el-col :span="6">
+        <div class="stat-card card-indigo">
+          <div class="stat-icon">
+            <el-icon><Histogram /></el-icon>
+          </div>
+          <div class="stat-content">
+            <p class="stat-label">高返工订单</p>
+            <p class="stat-value">{{ stats.highReworkCount || 0 }}</p>
+          </div>
+        </div>
+      </el-col>
+      <el-col :span="6">
+        <div class="stat-card card-teal">
+          <div class="stat-icon">
+            <el-icon><List /></el-icon>
+          </div>
+          <div class="stat-content">
+            <p class="stat-label">待处理订单</p>
+            <p class="stat-value">{{ stats.pendingOrders || 0 }}</p>
           </div>
         </div>
       </el-col>
@@ -102,6 +149,7 @@
 import { ref, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { getDashboardStats, getRevenueTrend } from '@/api/stats'
+import { getOverdueWarnings } from '@/api/orders'
 
 const stats = ref({})
 const revenueChart = ref(null)
@@ -178,6 +226,10 @@ onMounted(() => {
   &.card-green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
   &.card-orange { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
   &.card-purple { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+  &.card-cyan { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+  &.card-red { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+  &.card-indigo { background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); }
+  &.card-teal { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); }
   
   .stat-icon {
     font-size: 48px;

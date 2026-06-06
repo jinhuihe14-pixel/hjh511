@@ -15,6 +15,10 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>数据概览</span>
         </el-menu-item>
+        <el-menu-item index="/production/board">
+          <el-icon><Histogram /></el-icon>
+          <span>生产看板</span>
+        </el-menu-item>
         <el-menu-item index="/orders">
           <el-icon><Document /></el-icon>
           <span>订单管理</span>
@@ -26,6 +30,10 @@
         <el-menu-item index="/employees">
           <el-icon><Avatar /></el-icon>
           <span>员工管理</span>
+        </el-menu-item>
+        <el-menu-item index="/process-templates">
+          <el-icon><List /></el-icon>
+          <span>工序模板</span>
         </el-menu-item>
         <el-sub-menu index="salary">
           <template #title>

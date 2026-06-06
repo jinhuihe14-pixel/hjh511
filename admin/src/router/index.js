@@ -20,6 +20,12 @@ const routes = [
         meta: { title: '数据概览' }
       },
       {
+        path: 'production/board',
+        name: 'ProductionBoard',
+        component: () => import('@/views/production/Board.vue'),
+        meta: { title: '生产看板' }
+      },
+      {
         path: 'orders',
         name: 'Orders',
         component: () => import('@/views/orders/List.vue'),
@@ -42,6 +48,12 @@ const routes = [
         name: 'Employees',
         component: () => import('@/views/employees/List.vue'),
         meta: { title: '员工管理' }
+      },
+      {
+        path: 'process-templates',
+        name: 'ProcessTemplates',
+        component: () => import('@/views/process/Templates.vue'),
+        meta: { title: '工序模板' }
       },
       {
         path: 'salary/config',
